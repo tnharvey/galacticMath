@@ -1,0 +1,144 @@
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #000;
+}
+
+canvas {
+    display: block;
+    margin: 0 auto;
+}
+
+.game-ui-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.problem {
+    margin-top: 30px;
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: bold;
+    text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+    color: #00ffff;
+    text-align: center;
+}
+
+.score-container {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.score {
+    font-size: clamp(18px, 4vw, 24px);
+    color: #ffff00;
+    text-shadow: 0 0 5px #ffff00;
+}
+
+.shields-display {
+    font-size: clamp(14px, 3vw, 18px);
+    color: #00ff00;
+    text-shadow: 0 0 3px #00ff00;
+    margin-top: 5px;
+}
+
+.instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    font-size: clamp(12px, 2.5vw, 14px);
+    color: #aaa;
+    width: 90%;
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 46, 0.97);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 10;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.screen h1 {
+    font-size: clamp(30px, 7vw, 52px);
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+    margin-bottom: 30px;
+}
+
+.screen h2 {
+    font-size: clamp(26px, 6vw, 44px);
+    color: #ffff00;
+    text-shadow: 0 0 8px #ffff00;
+    margin-bottom: 25px;
+}
+
+.screen button {
+    background-color: #0077cc;
+    color: white;
+    border: 2px solid #00ffff;
+    padding: 12px 25px;
+    font-size: clamp(16px, 3.5vw, 22px);
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    margin: 10px;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(0, 200, 255, 0.3);
+    min-width: 180px;
+}
+
+.screen button:hover {
+    background-color: #0099e6;
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 6px 20px rgba(0, 255, 255, 0.5);
+}
+
+.level-category-title {
+    font-size: clamp(18px, 4vw, 24px);
+    color: #ff8c00;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 5px #ff8c00;
+}
+
+#levelSelectMenu .level-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    max-width: 800px;
+    margin-bottom: 15px;
+}
+
+#levelSelectMenu .level-buttons-container button {
+    padding: 10px 15px;
+    min-width: 55px;
+    font-size: clamp(14px, 3vw, 18px);
+}
+
+#mainMenu, #levelSelectMenu, #levelCompleteScreen, #gameOverScreen {
+    display: none;
+}
