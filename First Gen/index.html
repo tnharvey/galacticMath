@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Space Math Blaster - Core Edition</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="data:,">
+    <script src="script.js" defer></script>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
@@ -30,16 +30,18 @@
     <div id="levelSelectMenu" class="screen">
         <h2>Select Your Challenge</h2>
         <div class="level-category-title">Practice Levels (Times Tables)</div>
-        <div class="level-buttons-container" id="practiceLevelsContainer"></div>
+        <div class="level-buttons-container" id="practiceLevelsContainer">
+            </div>
         <div class="level-category-title">Core Gameplay</div>
-        <div class="level-buttons-container" id="coreLevelsContainer"></div>
+        <div class="level-buttons-container" id="coreLevelsContainer">
+            </div>
         <button id="backToMainMenuBtnLvl">Back to Main Menu</button>
     </div>
 
     <div id="levelCompleteScreen" class="screen">
         <h2>Level Complete!</h2>
         <p id="finalScoreComplete">Your Score: 0</p>
-        <button id="nextLevelBtn">Next Level (WIP)</button>
+        <button id="nextLevelBtn">Next Level</button>
         <button id="mainMenuFromCompleteBtn">Main Menu</button>
     </div>
 
@@ -50,6 +52,6 @@
         <button id="mainMenuFromGameOverBtn">Main Menu</button>
     </div>
 
-    <script type="module" src="main.js"></script>
+    
 </body>
 </html>

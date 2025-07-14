@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Math Blaster - Core Edition</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #0a0a2e, #16213e, #1a1a3a);
+            overflow: hidden;
+            font-family: 'Inter', 'Arial', sans-serif;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            position: relative; 
+        }
+        
+        canvas {
+            display: block;
+            background: radial-gradient(circle at 20% 80%, #120458 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, #2c1810 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, #0a0a2e 0%, transparent 50%);
+            width: 100%;
+            height: 100%;
+        }
+        
+        .game-ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            display: none; 
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pause-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: clamp(24px, 4vw, 30px); 
+            background-color: rgba(0, 120, 150, 0.7);
+            color: #00ffff;
+            border: 2px solid #00ffff;
+            border-radius: 8px;
+            padding: 5px 12px; 
+            cursor: pointer;
+            pointer-events: all; 
+            z-index: 15; 
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .pause-button:hover {
+            background-color: rgba(0, 150, 180, 0.9);
+            transform: scale(1.1);
+        }
+        
+        .problem {
+            margin-top: 30px;
+            font-size: clamp(24px, 5vw, 36px);
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            color: #00ffff;
+            text-align: center;
+        }
+        
+        .score-container { 
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .score {
+            font-size: clamp(18px, 4vw, 24px);
+            color: #ffff00;
+            text-shadow: 0 0 5px #ffff00;
+        }
+        .shields-display {
+            font-size: clamp(14px, 3vw, 18px);
+            color: #00ff00; 
+            text-shadow: 0 0 3px #00ff00;
+            margin-top: 5px;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: clamp(12px, 2.5vw, 14px);
+            color: #aaa;
+            width: 90%;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 46, 0.97); 
+            display: none; 
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 10; 
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .screen h1 {
+            font-size: clamp(30px, 7vw, 52px);
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            margin-bottom: 30px;
+        }
+        .screen h2 { 
+            font-size: clamp(26px, 6vw, 44px);
+            color: #ffff00;
+            text-shadow: 0 0 8px #ffff00;
+            margin-bottom: 15px; 
+        }
+        .screen button {
+            background-color: #0077cc; 
+            color: white;
+            border: 2px solid #00ffff; 
+            padding: 12px 25px;
+            font-size: clamp(16px, 3.5vw, 22px);
+            font-weight: bold;
+            border-radius: 10px; 
+            cursor: pointer;
+            margin: 10px;
+            transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 200, 255, 0.3); 
+            min-width: 180px;
+            pointer-events: all; 
+        }
+        .screen button:hover {
+            background-color: #0099e6; 
+            transform: translateY(-2px) scale(1.03); 
+            box-shadow: 0 6px 20px rgba(0, 255, 255, 0.5);
+        }
+        .screen button.danger-button { 
+            background-color: #cc0000;
+            border-color: #ff4444;
+            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
+        }
+        .screen button.danger-button:hover {
+            background-color: #e60000;
+            box-shadow: 0 6px 20px rgba(255, 50, 50, 0.5);
+        }
+        .screen button .small-text {
+            font-size: 0.6em;
+            font-weight: normal;
+            display: block;
+            margin-top: 2px;
+            color: #cccccc;
+        }
+
+        .screen > p { 
+            font-size: clamp(16px, 3vw, 20px);
+            margin-bottom: 20px;
+        }
+
+        /* Auth Form & Multi-step Styling */
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 450px;
+            text-align: left;
+        }
+        .form-container input[type="text"],
+        .form-container input[type="email"],
+        .form-container input[type="password"],
+        .form-container select {
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 2px solid #00ffff;
+            background-color: #0a1a3a;
+            color: white;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .form-container label {
+            margin-bottom: -10px;
+            font-weight: bold;
+            color: #ffff00;
+        }
+        .form-container .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ccc;
+            font-size: 14px;
+        }
+        .form-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+        .form-navigation {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .dynamic-list-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .dynamic-list-item button {
+            padding: 5px 10px;
+            font-size: 20px;
+            min-width: auto;
+            line-height: 1;
+        }
+        .auth-message { color: #ff4444; min-height: 20px; font-weight: bold; }
+        .auth-switch-link { color: #ffff00; text-decoration: underline; cursor: pointer; }
+        #authStatusContainer { position: absolute; top: 20px; left: 20px; z-index: 12; background-color: rgba(10, 20, 50, 0.8); padding: 10px 15px; border-radius: 8px; border: 1px solid #00ffff88; display: none; }
+        #authStatusContainer p { margin: 0; }
+        #authStatusContainer button { padding: 5px 10px; font-size: 14px; min-width: auto; margin-left: 10px; }
+
+        .profile-selection-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            max-width: 800px;
+        }
+        .profile-card {
+            background-color: #0077cc;
+            border: 2px solid #00ffff;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .profile-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .level-category-title { font-size: clamp(18px, 4vw, 24px); color: #ff8c00; margin-top: 20px; margin-bottom: 10px; text-shadow: 0 0 5px #ff8c00; }
+        #levelSelectMenu .level-buttons-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; max-width: 800px; margin-bottom: 15px; }
+        #levelSelectMenu .level-buttons-container button { padding: 10px 15px; min-width: 55px; font-size: clamp(14px, 3vw, 18px); }
+        #levelSelectMenu .core-level-button { min-width: 200px !important; padding: 12px 20px !important; font-size: clamp(15px, 3.2vw, 20px) !important; }
+
+        .report-container { background-color: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; margin: 10px 0 15px 0; max-width: 90%; width: 600px; min-height: 150px; max-height: 350px; border: 1px solid #00ffff66; color: #e0e0e0; text-align: left; box-shadow: 0 0 15px rgba(0,255,255,0.2); display: flex; flex-direction: column; }
+        .report-container h3 { color: #ffff00; margin: 0 0 10px 0; font-size: clamp(17px, 3.2vw, 20px); border-bottom: 1px solid #00ffff44; padding-bottom: 8px; flex-shrink: 0; }
+        .report-content-scrollable { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
+        .report-container p { margin-bottom: 10px; line-height: 1.6; font-size: clamp(15px, 2.8vw, 18px); }
+        .report-container p.final-score-report { font-weight: bold; color: #00ff00; margin-bottom: 15px; }
+        
+        .stats-table { width: 100%; border-collapse: collapse; margin-top: 0; }
+        .stats-table th, .stats-table td { border: 1px solid #00ffff88; padding: 8px 10px; text-align: left; font-size: clamp(13px, 2.5vw, 16px); word-break: break-word; }
+        .stats-table th { background-color: rgba(0, 80, 120, 0.6); color: #ffff00; position: sticky; top: 0; z-index: 1; }
+        .stats-table td:nth-child(1) { width: 50%; }
+        .stats-table td:nth-child(2), .stats-table td:nth-child(3) { text-align: center; width: 25%; }
+
+        .heatmap-container { display: grid; grid-template-columns: repeat(13, 1fr); gap: 2px; padding: 10px; background-color: rgba(0,0,0,0.2); border-radius: 8px; max-width: 90vw; margin: 20px auto; }
+        .heatmap-cell, .heatmap-header { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; font-size: clamp(10px, 1.5vw, 14px); font-weight: bold; border: 1px solid #003344; border-radius: 4px; color: white; }
+        .heatmap-header { background-color: rgba(0, 80, 120, 0.5); color: #ffff00; }
+        .heatmap-cell { background-color: #444; cursor: pointer; transition: transform 0.1s ease-in-out; }
+        .heatmap-cell:hover { transform: scale(1.1); z-index: 2; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background-color: #1a2a4a; padding: 25px; border-radius: 10px; border: 2px solid #00ffff; text-align: center; box-shadow: 0 5px 25px rgba(0,200,255,0.4); max-width: 90%; width: 500px; }
+        .modal-content p { font-size: clamp(16px, 3vw, 18px); margin-bottom: 20px; color: #eee; }
+        .modal-buttons button { min-width: 120px; margin: 5px 10px; }
+        #graphModal .modal-content { width: 80vw; max-width: 800px; } 
+
+        #mainMenu, #levelSelectMenu, #levelCompleteScreen, #gameOverScreen, #pauseMenuScreen,
+        #reportingMenuScreen, #heatmapReportScreen, #settingsScreen, #confirmationModal,
+        #loginScreen, #signUpScreen, #graphModal, #profileSelectScreen,
+        /* Hide all sign-up steps initially */
+        #signUpStep1, #signUpStep2, #signUpStep3Parent, #signUpStep3Teacher, #signUpStep4Teacher, #signUpComplete,
+        #managePlayersScreen { 
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="authStatusContainer"></div>
+    
+    <div class="game-ui-container" id="gameUiContainer">
+        <button id="pauseGameBtn" class="pause-button">☰</button>
+        <div class="problem" id="problem">? × ? = ?</div>
+        <div class="score-container">
+            <div class="score" id="score">Score: 0</div>
+            <div classs="shields-display" id="shieldsDisplay"></div>
+        </div>
+        <div class="instructions">
+            Move: ←→ keys or mouse | Shoot: SPACEBAR or click/tap
+        </div>
+    </div>
+
+    <!-- Auth Screens -->
+    <div id="loginScreen" class="screen">
+        <h2>Guardian / Teacher Login</h2>
+        <div class="form-container">
+            <input type="email" id="loginEmail" placeholder="Email">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button id="loginBtn">Login</button>
+            <div id="loginMessage" class="auth-message"></div>
+            <p>Don't have an account? <span id="goToSignUpLink" class="auth-switch-link">Sign Up</span></p>
+        </div>
+    </div>
+
+    <div id="signUpScreen" class="screen">
+        <!-- Step 1: Role Selection -->
+        <div id="signUpStep1">
+            <h2>Create an Account</h2>
+            <p>Are you a Guardian or a Teacher?</p>
+            <button id="selectRoleGuardianBtn">I'm a Guardian</button>
+            <button id="selectRoleTeacherBtn">I'm a Teacher</button>
+            <p style="margin-top: 20px;">Already have an account? <span id="goToLoginFromSignUpLink" class="auth-switch-link">Login</span></p>
+        </div>
+
+        <!-- Step 2: Guardian/Teacher Details -->
+        <div id="signUpStep2" class="form-container">
+            <h2 id="signUpStep2Title">Account Details</h2>
+            <label for="signUpFirstName">First Name</label>
+            <input type="text" id="signUpFirstName" placeholder="First Name">
+            <label for="signUpLastName">Last Name</label>
+            <input type="text" id="signUpLastName">
+            <label for="signUpEmail">Email</label>
+            <input type="email" id="signUpEmail" placeholder="Email">
+            <label for="signUpPassword">Password (min. 6 characters)</label>
+            <input type="password" id="signUpPassword" placeholder="Password">
+            <!-- Teacher-specific fields -->
+            <div id="teacherFields" style="display: none;">
+                <label for="signUpJobTitle">Job Title</label>
+                <input type="text" id="signUpJobTitle" placeholder="e.g., 4th Grade Teacher">
+                <label for="signUpSchoolName">School Name</label>
+                <input type="text" id="signUpSchoolName">
+                <label for="signUpSchoolDistrict">School District (Optional)</label>
+                <input type="text" id="signUpSchoolDistrict">
+                 <label for="signUpSchoolContact">School Contact Number</label>
+                <input type="text" id="signUpSchoolContact" placeholder="e.g., (555) 123-4567">
+            </div>
+            <label class="checkbox-label">
+                <input type="checkbox" id="signUpLegalConfirm">
+                <span>I confirm I am over 18 and have the legal right or parental/school permission to create accounts for players.</span>
+            </label>
+            <div id="signUpStep2Message" class="auth-message"></div>
+            <div class="form-navigation">
+                <button id="signUpBackToStep1Btn">Back</button>
+                <button id="signUpToStep3Btn">Next</button>
+            </div>
+        </div>
+
+        <!-- Step 3 (Parent): Add Children -->
+        <div id="signUpStep3Parent" class="form-container">
+            <h2>Add Players</h2>
+            <p>Create a unique username for each player.</p>
+            <div id="parentPlayerList">
+                <!-- Player rows will be added here -->
+            </div>
+            <button id="addPlayerRowBtn">+</button>
+            <div id="signUpStep3ParentMessage" class="auth-message"></div>
+            <div class="form-navigation">
+                <button id="signUpBackToStep2BtnP">Back</button>
+                <button id="submitParentSignUpBtn">Create Account</button>
+            </div>
+        </div>
+        
+        <!-- Step 3 (Teacher): Add Classes -->
+        <div id="signUpStep3Teacher" class="form-container">
+            <h2>Add Classes</h2>
+            <div id="teacherClassList">
+                <!-- Class rows will be added here -->
+            </div>
+            <button id="addClassRowBtn">+</button>
+            <div class="form-navigation">
+                <button id="signUpBackToStep2BtnT">Back</button>
+                <button id="signUpToStep4Btn">Next</button>
+            </div>
+        </div>
+        
+        <!-- Step 4 (Teacher): Add Students -->
+        <div id="signUpStep4Teacher" class="form-container">
+            <h2>Add Students to Classes</h2>
+            <label for="classSelect">Select a Class:</label>
+            <select id="classSelect" class="form-container input"></select>
+            <div id="teacherStudentList">
+                <!-- Student rows for the selected class will be added here -->
+            </div>
+            <button id="addStudentRowBtn">+</button>
+            <div id="signUpStep4Message" class="auth-message"></div>
+            <div class="form-navigation">
+                <button id="signUpBackToStep3Btn">Back</button>
+                <button id="submitTeacherSignUpBtn">Create Account & Finish</button>
+            </div>
+        </div>
+
+        <!-- Step 5: Success -->
+        <div id="signUpComplete">
+            <h2>Account Created!</h2>
+            <p>Your account and player profiles have been successfully created. You may now sign in to get started.</p>
+            <button id="backToLoginFromCompleteBtn">Go to Login</button>
+        </div>
+    </div>
+
+    <!-- Profile Selection Screen -->
+    <div id="profileSelectScreen" class="screen">
+        <h2>Select a Player</h2>
+        <div id="profileSelectionContainer" class="profile-selection-container">
+            <!-- Player profile cards will be injected here -->
+        </div>
+        <div id="profileSelectActions" class="form-navigation">
+             <!-- Buttons will be injected here -->
+        </div>
+    </div>
+
+    <div id="mainMenu" class="screen">
+        <h1>Space Math Blaster</h1>
+        <div id="mainMenuUserControls"></div>
+    </div>
+    
+    <div id="settingsScreen" class="screen">
+        <h2>Settings</h2>
+        <button id="managePlayersBtn">Manage Players</button>
+        <button id="clearPlayerHistoryBtn" class="danger-button">Clear Player History</button>
+        <div id="clearHistoryStatus" style="margin-top: 10px; color: #00ff00;"></div>
+        <button id="backToProfileSelectBtn">Back to Profile Select</button>
+    </div>
+    
+    <!-- New Screen for adding players after initial sign up -->
+    <div id="managePlayersScreen" class="screen form-container">
+        <h2>Manage Players</h2>
+        <p>Add new players to your account.</p>
+        <div id="managePlayerList">
+            <!-- Player rows will be added here -->
+        </div>
+        <button id="addPlayerRowManageBtn">+</button>
+        <div id="managePlayersMessage" class="auth-message"></div>
+        <div class="form-navigation">
+            <button id="backToSettingsBtn">Back to Settings</button>
+            <button id="saveNewPlayersBtn">Save New Players</button>
+        </div>
+    </div>
+
+
+    <!-- Modals -->
+    <div id="confirmationModal" class="modal-overlay">
+        <div class="modal-content">
+            <p id="confirmationMessageText">Are you sure?</p>
+            <div class="modal-buttons">
+                <button id="confirmClearBtn" class="danger-button">Confirm</button>
+                <button id="cancelClearBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="graphModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="graphTitle"></h2>
+            <canvas id="progressChart"></canvas>
+            <div class="modal-buttons">
+                <button id="closeGraphBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportingMenuScreen" class="screen">
+        <h2>Reporting</h2>
+        <button id="overallPerformanceBtn">Overall Performance</button>
+        <button id="backToMainMenuFromReportingBtn">Back to Main Menu</button>
+    </div>
+
+    <div id="heatmapReportScreen" class="screen">
+        <h2>Overall Performance Heatmap</h2>
+        <div id="heatmapContainer" class="heatmap-container"></div>
+        <button id="backToReportingMenuBtn">Back to Reporting Menu</button>
+    </div>
+
+    <div id="levelSelectMenu" class="screen">
+        <h2>Select Your Challenge</h2>
+        <div class="level-category-title">Practice Levels (Times Tables)</div>
+        <div class="level-buttons-container" id="practiceLevelsContainer"></div>
+        <div class="level-category-title">Core Gameplay</div>
+        <div class="level-buttons-container" id="coreLevelsContainer"></div>
+        <button id="backToMainMenuBtnLvl">Back to Main Menu</button>
+    </div>
+
+    <div id="pauseMenuScreen" class="screen">
+        <h2>Paused</h2>
+        <button id="resumeGameBtn">Resume Game</button>
+        <button id="pauseMenuSettingsBtn">Settings (WIP)</button>
+        <button id="exitToMainMenuBtn">
+            Exit to Main Menu
+            <span class="small-text">Progress will be lost</span>
+        </button>
+    </div>
+
+    <div id="levelCompleteScreen" class="screen">
+        <h2>Level Complete!</h2>
+        <div id="levelReportComplete" class="report-container">
+            <h3>Level Performance</h3>
+            <div class="report-content-scrollable">
+                <p id="finalScoreComplete" class="final-score-report">Your Score: 0</p>
+            </div>
+        </div>
+        <button id="nextLevelBtn">Next Level</button>
+        <button id="mainMenuFromCompleteBtn">Main Menu</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen">
+        <h2>Game Over!</h2>
+        <div id="gameOverReport" class="report-container">
+            <h3>Game Analysis</h3>
+            <div class="report-content-scrollable">
+                <p id="finalScoreGameOver" class="final-score-report">Your Score: 0</p>
+            </div>
+        </div>
+        <button id="tryAgainBtn">Try Again</button>
+        <button id="mainMenuFromGameOverBtn">Main Menu</button>
+    </div>
+
+    <script>
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxhEUPx49mOFT9PUyiSW2EE6F52VLfNMM",
+            authDomain: "mathblast-f348b.firebaseapp.com",
+            projectId: "mathblast-f348b",
+            storageBucket: "mathblast-f348b.appspot.com",
+            messagingSenderId: "708333131014",
+            appId: "1:708333131014:web:454e34f979fac3bcc3ba87",
+            measurementId: "G-KVBHPRNCS6"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // --- DOM Element Cache ---
+        const dom = {
+            canvas: document.getElementById('gameCanvas'), ctx: document.getElementById('gameCanvas').getContext('2d'),
+            gameUiContainer: document.getElementById('gameUiContainer'), problemEl: document.getElementById('problem'),
+            scoreEl: document.getElementById('score'), shieldsDisplayEl: document.getElementById('shieldsDisplay'),
+            // Screens
+            loginScreen: document.getElementById('loginScreen'), signUpScreen: document.getElementById('signUpScreen'),
+            mainMenuScreen: document.getElementById('mainMenu'), levelSelectScreen: document.getElementById('levelSelectMenu'),
+            levelCompleteScreen: document.getElementById('levelCompleteScreen'), gameOverScreen: document.getElementById('gameOverScreen'),
+            pauseMenuScreen: document.getElementById('pauseMenuScreen'), reportingMenuScreen: document.getElementById('reportingMenuScreen'),
+            heatmapReportScreen: document.getElementById('heatmapReportScreen'), settingsScreen: document.getElementById('settingsScreen'),
+            profileSelectScreen: document.getElementById('profileSelectScreen'), managePlayersScreen: document.getElementById('managePlayersScreen'),
+            // Modals
+            confirmationModal: document.getElementById('confirmationModal'), graphModal: document.getElementById('graphModal'),
+            // Containers
+            practiceLevelsContainer: document.getElementById('practiceLevelsContainer'), coreLevelsContainer: document.getElementById('coreLevelsContainer'),
+            heatmapContainer: document.getElementById('heatmapContainer'), authStatusContainer: document.getElementById('authStatusContainer'),
+            mainMenuUserControls: document.getElementById('mainMenuUserControls'), profileSelectionContainer: document.getElementById('profileSelectionContainer'),
+            profileSelectActions: document.getElementById('profileSelectActions'),
+            // Status/Message Elements
+            confirmationMessageText: document.getElementById('confirmationMessageText'), clearHistoryStatusEl: document.getElementById('clearHistoryStatus'),
+            loginMessage: document.getElementById('loginMessage'), signUpStep2Message: document.getElementById('signUpStep2Message'),
+            signUpStep3ParentMessage: document.getElementById('signUpStep3ParentMessage'), signUpStep4Message: document.getElementById('signUpStep4Message'),
+            managePlayersMessage: document.getElementById('managePlayersMessage'), graphTitle: document.getElementById('graphTitle'),
+            // Auth Inputs
+            loginEmailInput: document.getElementById('loginEmail'), loginPasswordInput: document.getElementById('loginPassword'),
+            signUpFirstName: document.getElementById('signUpFirstName'), signUpLastName: document.getElementById('signUpLastName'),
+            signUpEmailInput: document.getElementById('signUpEmail'), signUpPasswordInput: document.getElementById('signUpPassword'),
+            signUpLegalConfirm: document.getElementById('signUpLegalConfirm'),
+            // Auth Buttons & Links
+            loginBtn: document.getElementById('loginBtn'), 
+            goToSignUpLink: document.getElementById('goToSignUpLink'), goToLoginLink: document.getElementById('goToLoginFromSignUpLink'),
+            // Static Buttons
+            backToMainMenuBtnLvl: document.getElementById('backToMainMenuBtnLvl'), nextLevelBtn: document.getElementById('nextLevelBtn'),
+            mainMenuFromCompleteBtn: document.getElementById('mainMenuFromCompleteBtn'), tryAgainBtn: document.getElementById('tryAgainBtn'),
+            mainMenuFromGameOverBtn: document.getElementById('mainMenuFromGameOverBtn'), pauseGameBtn: document.getElementById('pauseGameBtn'),
+            resumeGameBtn: document.getElementById('resumeGameBtn'), pauseMenuSettingsBtn: document.getElementById('pauseMenuSettingsBtn'),
+            exitToMainMenuBtn: document.getElementById('exitToMainMenuBtn'), overallPerformanceBtn: document.getElementById('overallPerformanceBtn'),
+            backToMainMenuFromReportingBtn: document.getElementById('backToMainMenuFromReportingBtn'), backToReportingMenuBtn: document.getElementById('backToReportingMenuBtn'),
+            clearPlayerHistoryBtn: document.getElementById('clearPlayerHistoryBtn'), confirmClearBtn: document.getElementById('confirmClearBtn'),
+            cancelClearBtn: document.getElementById('cancelClearBtn'), backToProfileSelectBtn: document.getElementById('backToProfileSelectBtn'),
+            closeGraphBtn: document.getElementById('closeGraphBtn'), logoutFromProfileSelectBtn: document.getElementById('logoutFromProfileSelectBtn'),
+            profileSelectSettingsBtn: document.getElementById('profileSelectSettingsBtn'), managePlayersBtn: document.getElementById('managePlayersBtn'),
+            backToSettingsBtn: document.getElementById('backToSettingsBtn'), saveNewPlayersBtn: document.getElementById('saveNewPlayersBtn'),
+            addPlayerRowManageBtn: document.getElementById('addPlayerRowManageBtn'), managePlayerList: document.getElementById('managePlayerList'),
+            // Sign-Up Step Elements
+            signUpStep1: document.getElementById('signUpStep1'), signUpStep2: document.getElementById('signUpStep2'),
+            signUpStep3Parent: document.getElementById('signUpStep3Parent'), signUpStep3Teacher: document.getElementById('signUpStep3Teacher'),
+            signUpStep4Teacher: document.getElementById('signUpStep4Teacher'), signUpComplete: document.getElementById('signUpComplete'),
+            selectRoleGuardianBtn: document.getElementById('selectRoleGuardianBtn'), selectRoleTeacherBtn: document.getElementById('selectRoleTeacherBtn'),
+            signUpBackToStep1Btn: document.getElementById('signUpBackToStep1Btn'), signUpToStep3Btn: document.getElementById('signUpToStep3Btn'),
+            teacherFields: document.getElementById('teacherFields'), 
+            parentPlayerList: document.getElementById('parentPlayerList'), addPlayerRowBtn: document.getElementById('addPlayerRowBtn'),
+            signUpBackToStep2BtnP: document.getElementById('signUpBackToStep2BtnP'), submitParentSignUpBtn: document.getElementById('submitParentSignUpBtn'),
+            teacherClassList: document.getElementById('teacherClassList'), addClassRowBtn: document.getElementById('addClassRowBtn'),
+            signUpBackToStep2BtnT: document.getElementById('signUpBackToStep2BtnT'), signUpToStep4Btn: document.getElementById('signUpToStep4Btn'),
+            classSelect: document.getElementById('classSelect'), teacherStudentList: document.getElementById('teacherStudentList'),
+            addStudentRowBtn: document.getElementById('addStudentRowBtn'), signUpBackToStep3Btn: document.getElementById('signUpBackToStep3Btn'),
+            submitTeacherSignUpBtn: document.getElementById('submitTeacherSignUpBtn'), backToLoginFromCompleteBtn: document.getElementById('backToLoginFromCompleteBtn'),
+            // Final Score Elements
+            finalScoreCompleteEl: document.getElementById('finalScoreComplete'), finalScoreGameOverEl: document.getElementById('finalScoreGameOver')
+        };
+        
+        // Game States
+        const GAME_STATE = { LOGIN: 'LOGIN', SIGN_UP: 'SIGN_UP', MENU: 'MENU', LEVEL_SELECT: 'LEVEL_SELECT', PLAYING: 'PLAYING', LEVEL_COMPLETE: 'LEVEL_COMPLETE', GAME_OVER: 'GAME_OVER', PAUSED: 'PAUSED', REPORTING_MENU: 'REPORTING_MENU', HEATMAP_REPORT: 'HEATMAP_REPORT', SETTINGS: 'SETTINGS', PROFILE_SELECT: 'PROFILE_SELECT', MANAGE_PLAYERS: 'MANAGE_PLAYERS' };
+        let currentGameState = GAME_STATE.LOGIN;
+        let previousGameState = GAME_STATE.LOGIN; 
+        let selectedLevelType = null; 
+        let selectedLevelValue = null; 
+
+        // Performance Tracking
+        let levelProblemStats = {}; let overallPlayerStats = {}; let currentUser = null; let currentPlayerProfile = null;
+        let currentLevelErrorTracker = {}; 
+        
+        // Sprite Manager (omitted for brevity, no changes)
+        const spriteManager = {
+            spriteSheetImage: null, isLoaded: false, isLoading: false,
+            spriteData: { spaceship:{sX:4,sY:4,sWidth:80,sHeight:60,dWidth:80,dHeight:60}, playerBullet:{sX:88,sY:4,sWidth:20,sHeight:20,dWidth:20,dHeight:20}, enemy1:{sX:116,sY:4,sWidth:80,sHeight:60,dWidth:80,dHeight:60}, enemyBullet:{sX:204,sY:4,sWidth:16,sHeight:16,dWidth:16,dHeight:16}, answerBox:{sX:4,sY:72,sWidth:140,sHeight:80,dWidth:140,dHeight:80}, powerupShield:{sX:148,sY:72,sWidth:60,sHeight:60,dWidth:60,dHeight:60}, powerupBomb:{sX:216,sY:72,sWidth:60,sHeight:60,dWidth:60,dHeight:60}, powerupSparkle:{sX:284,sY:72,sWidth:60,sHeight:60,dWidth:60,dHeight:60} },
+            loadSpriteSheet: function(url) { if (this.isLoading || this.isLoaded) return; this.isLoading = true; this.spriteSheetImage = new Image(); this.spriteSheetImage.onload = () => { this.isLoaded = true; this.isLoading = false; console.log("Sprite sheet loaded successfully."); }; this.spriteSheetImage.onerror = () => { this.isLoaded = false; this.isLoading = false; console.error("Failed to load sprite sheet from:", url); }; this.spriteSheetImage.src = url; },
+            getSprite: function(name) { if (!this.isLoaded || !this.spriteData[name]) return null; return this.spriteData[name];}
+        };
+
+        // Game Variables
+        let score = 0; 
+        const SCORE_TO_WIN = 200; const SCORE_TO_LOSE = -20; 
+        const POINTS_CORRECT_ANSWER = 10; const POINTS_ENEMY_DESTROYED = 5;
+        const PENALTY_WRONG_ANSWER = -5; const PENALTY_MISSED_CORRECT = -5; const PENALTY_PLAYER_HIT = -10;
+
+        let spaceship = { x: 0, y: 0, width: spriteManager.spriteData.spaceship.dWidth, height: spriteManager.spriteData.spaceship.dHeight, dx: 0, acceleration: 0.5, maxSpeed: 7, friction: 0.92, shields: 0, isInvincible: false, invincibilityTimer: 0, spriteName: 'spaceship' };
+        let bullets = []; let answers = []; let enemies = []; let enemyBullets = []; let powerups = []; let particles = []; 
+        let keys = {}; let mouseX = 0; let mouseActive = false;
+        const stars = []; const numStars = 150;
+        const ANSWER_TRAVEL_TIME_SECONDS = 10; 
+        let questionsAnsweredCorrectlyInLevel = 0;
+        const POWERUP_SPAWN_INTERVAL = 3; 
+        const POWERUP_TYPES = { ANSWER_BOMB: 'ANSWER_BOMB', SHIELD: 'SHIELD', SPARKLE_BOMB: 'SPARKLE_BOMB' };
+        let currentProblem = {}; 
+        let gameJustReset = false; 
+        let progressChart = null; 
+        let signUpData = {}; // To hold data across sign-up steps
+
+        // --- Stats Helper Functions ---
+        function getCanonicalProblemString(num1, num2) { return num1 <= num2 ? `${num1} × ${num2}` : `${num2} × ${num1}`; }
+        
+        async function loadOverallStats() {
+            if (!currentPlayerProfile) { overallPlayerStats = {}; return; }
+            const profileStatsDoc = await db.collection('profiles').doc(currentPlayerProfile.profileId).get();
+            if (profileStatsDoc.exists) {
+                overallPlayerStats = profileStatsDoc.data().stats || {};
+            } else {
+                overallPlayerStats = {};
+            }
+            console.log("Stats loaded for profile:", currentPlayerProfile.username);
+        }
+
+        async function saveOverallStats() {
+            if (!currentPlayerProfile) return; 
+            try {
+                await db.collection('profiles').doc(currentPlayerProfile.profileId).set({ stats: overallPlayerStats }, { merge: true });
+                console.log("Stats saved for profile:", currentPlayerProfile.username);
+            } catch (error) {
+                console.error("Error saving stats:", error);
+            }
+        }
+
+        function updateAndSaveOverallStats() {
+            const timestamp = new Date().getTime(); 
+            for (const problemKey in levelProblemStats) { 
+                if (!overallPlayerStats[problemKey]) {
+                    overallPlayerStats[problemKey] = { totalSuccesses: 0, totalFailures: 0, history: [] };
+                }
+                if (!Array.isArray(overallPlayerStats[problemKey].history)) {
+                    overallPlayerStats[problemKey].history = [];
+                }
+                const levelStats = levelProblemStats[problemKey];
+                overallPlayerStats[problemKey].totalSuccesses += levelStats.successes;
+                overallPlayerStats[problemKey].totalFailures += levelStats.failures;
+                if (levelStats.successes > 0 || levelStats.failures > 0) {
+                    overallPlayerStats[problemKey].history.push({
+                        timestamp: timestamp,
+                        successes: levelStats.successes,
+                        failures: levelStats.failures
+                    });
+                }
+            }
+            saveOverallStats();
+        }
+        
+        function clearAllGameEntitiesAndTimers() { bullets = []; answers = []; enemies = []; enemyBullets = []; powerups = []; particles = []; }
+
+        function setGameState(newState) {
+            previousGameState = currentGameState; currentGameState = newState; gameJustReset = false;
+            document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+            dom.gameUiContainer.style.display='none'; dom.canvas.style.display='block'; 
+            
+            const menuStates = [GAME_STATE.LOGIN, GAME_STATE.SIGN_UP, GAME_STATE.MENU, GAME_STATE.LEVEL_SELECT, GAME_STATE.REPORTING_MENU, GAME_STATE.HEATMAP_REPORT, GAME_STATE.SETTINGS, GAME_STATE.PROFILE_SELECT, GAME_STATE.MANAGE_PLAYERS];
+            if (menuStates.includes(newState)) {
+                dom.authStatusContainer.style.display = 'block';
+            } else {
+                dom.authStatusContainer.style.display = 'none';
+            }
+
+            switch (newState) {
+                case GAME_STATE.LOGIN: dom.loginScreen.style.display = 'flex'; break;
+                case GAME_STATE.SIGN_UP: dom.signUpScreen.style.display = 'flex'; showSignUpStep(1); break;
+                case GAME_STATE.PROFILE_SELECT: dom.profileSelectScreen.style.display = 'flex'; displayProfileSelection(); break;
+                case GAME_STATE.MENU: dom.mainMenuScreen.style.display = 'flex'; updateMainMenuUI(); break;
+                case GAME_STATE.LEVEL_SELECT: dom.levelSelectScreen.style.display = 'flex'; break;
+                case GAME_STATE.PLAYING: dom.gameUiContainer.style.display='flex'; if(previousGameState!==GAME_STATE.PAUSED) { resetGameForNewLevel(); gameJustReset = true; } break;
+                case GAME_STATE.PAUSED: dom.pauseMenuScreen.style.display='flex'; dom.gameUiContainer.style.display='flex'; break;
+                case GAME_STATE.LEVEL_COMPLETE: dom.finalScoreCompleteEl.textContent=`Your Final Score: ${score}`; updateAndSaveOverallStats(); displayLevelReport('levelReportComplete'); dom.levelCompleteScreen.style.display='flex'; break;
+                case GAME_STATE.GAME_OVER: dom.finalScoreGameOverEl.textContent=`Your Final Score: ${score}`; updateAndSaveOverallStats(); displayLevelReport('gameOverReport'); dom.gameOverScreen.style.display='flex'; break;
+                case GAME_STATE.REPORTING_MENU: dom.reportingMenuScreen.style.display = 'flex'; break;
+                case GAME_STATE.HEATMAP_REPORT: displayOverallHeatmap(); dom.heatmapReportScreen.style.display = 'flex'; break;
+                case GAME_STATE.SETTINGS: dom.settingsScreen.style.display = 'flex'; dom.clearHistoryStatusEl.textContent = ''; break; 
+                case GAME_STATE.MANAGE_PLAYERS: dom.managePlayersScreen.style.display = 'flex'; initializeManagePlayersScreen(); break;
+            }
+        }
+        
+        // --- Core Game Logic (omitted for brevity, no changes) ---
+        function resetGameForNewLevel() { score=0; dom.scoreEl.textContent=`Score: ${score}`; questionsAnsweredCorrectlyInLevel=0; levelProblemStats={}; currentLevelErrorTracker={}; clearAllGameEntitiesAndTimers(); const shipSpr=spriteManager.getSprite('spaceship')||{dWidth:80,dHeight:60}; spaceship.width=shipSpr.dWidth; spaceship.height=shipSpr.dHeight; spaceship.x=dom.canvas.width/2; spaceship.y=dom.canvas.height-(shipSpr.dHeight+20); spaceship.dx=0; spaceship.shields=0; spaceship.isInvincible=false; spaceship.invincibilityTimer=0; updateShieldsDisplay(); mouseX=spaceship.x; keys={}; generateProblem(); }
+        function resizeCanvas() { dom.canvas.width=window.innerWidth; dom.canvas.height=window.innerHeight; const shipSpr=spriteManager.getSprite('spaceship')||{dWidth:80,dHeight:60}; if(currentGameState===GAME_STATE.PLAYING||(currentGameState!==GAME_STATE.MENU&&currentGameState!==GAME_STATE.LEVEL_SELECT&&spaceship.y===0)){ spaceship.x=dom.canvas.width/2; spaceship.y=dom.canvas.height-(shipSpr.dHeight+20); spaceship.dx=0; if(answers.length===0 && currentGameState === GAME_STATE.PLAYING)generateProblem();}else if(currentGameState===GAME_STATE.MENU||currentGameState===GAME_STATE.LEVEL_SELECT){ spaceship.y=dom.canvas.height-(shipSpr.dHeight+20); } stars.length=0; for(let i=0;i<numStars;i++)stars.push({x:Math.random()*dom.canvas.width,y:Math.random()*dom.canvas.height,size:Math.random()*2+0.5,speed:Math.random()*0.5+0.1,opacity:Math.random()*0.5+0.3}); }
+        function checkOverlap(r1,r2){if(!r1||!r2||typeof r1.x==='undefined'||typeof r1.y==='undefined'||typeof r1.width==='undefined'||typeof r1.height==='undefined'||typeof r2.x==='undefined'||typeof r2.y==='undefined'||typeof r2.width==='undefined'||typeof r2.height==='undefined')return false;const r1L=r1.x-r1.width/2,r1R=r1.x+r1.width/2,r1T=r1.y-r1.height/2,r1B=r1.y+r1.height/2;const r2L=r2.x-r2.width/2,r2R=r2.x+r2.width/2,r2T=r2.y-r2.height/2,r2B=r2.y+r2.height/2;return!(r1R<r2L||r1L>r2R||r1B<r2T||r1T>r2B);}
+        function generateProblem(){let a,b;if(selectedLevelType==='PRACTICE'){a=selectedLevelValue;b=Math.floor(Math.random()*12)+1;if(Math.random()<0.5)[a,b]=[b,a];}else if(selectedLevelType==='APPRENTICE'){a=Math.floor(Math.random()*6)+1;b=Math.floor(Math.random()*6)+1;}else if(selectedLevelType==='JOURNEYMAN'){a=Math.floor(Math.random()*9)+1;b=Math.floor(Math.random()*9)+1;}else if(selectedLevelType==='MASTER'){a=Math.floor(Math.random()*12)+1;b=Math.floor(Math.random()*12)+1;}else{a=Math.floor(Math.random()*10)+1;b=Math.floor(Math.random()*10)+1;}const cAnsVal=a*b;currentProblem={a,b,answer:cAnsVal};dom.problemEl.textContent=`${a} × ${b} = ?`;answers=[];const usedVals=new Set([cAnsVal]);const ansSpr=spriteManager.getSprite('answerBox')||{dWidth:140,dHeight:80};const ansW=ansSpr.dWidth,ansH=ansSpr.dHeight;const ansVy=(dom.canvas.height+ansH)/(ANSWER_TRAVEL_TIME_SECONDS*60);let placedCorrect=false;for(let att=0;att<50&&!placedCorrect;att++){const nA={value:cAnsVal,x:Math.random()*(dom.canvas.width-ansW-20)+(ansW/2)+10,y:0-ansH/2-(Math.random()*40),vy:ansVy,width:ansW,height:ansH,correct:true,spriteName:'answerBox'};if(!answers.some(ex=>checkOverlap(nA,ex))){answers.push(nA);placedCorrect=true;}}
+        if(!placedCorrect)answers.push({value:cAnsVal,x:dom.canvas.width/2,y:0-ansH/2,vy:ansVy,width:ansW,height:ansH,correct:true,spriteName:'answerBox'});const numDist=selectedLevelType==='APPRENTICE'?3:(selectedLevelType==='JOURNEYMAN'?4:5);for(let i=0;i<numDist;i++){let wV;for(let vA=0;vA<20;vA++){const off=(Math.random()<0.5?-1:1)*(Math.floor(Math.random()*5)+1);wV=cAnsVal+off*(Math.random()<0.3?b:(Math.random()<0.6?a:(Math.floor(Math.random()*5)+1)));if(wV<=0||wV>144)wV=Math.floor(Math.random()*((selectedLevelType==='MASTER'||selectedLevelType==='JOURNEYMAN')?144:(selectedLevelType==='APPRENTICE'?36:100)))+1;if(!usedVals.has(wV))break;}
+        if(usedVals.has(wV))continue;usedVals.add(wV);for(let pA=0;pA<30;pA++){const nD={value:wV,x:Math.random()*(dom.canvas.width-ansW-20)+(ansW/2)+10,y:0-ansH/2-(Math.random()*140),vy:ansVy,width:ansW,height:ansH,correct:false,spriteName:'answerBox'};if(!answers.some(ex=>checkOverlap(nD,ex))){answers.push(nD);break;}}}
+        spawnEnemies();if((selectedLevelType==='JOURNEYMAN'||selectedLevelType==='MASTER')&&(questionsAnsweredCorrectlyInLevel>0&&questionsAnsweredCorrectlyInLevel%POWERUP_SPAWN_INTERVAL===0))spawnPowerup();}
+        function spawnEnemies(){enemies=[];const enS=spriteManager.getSprite('enemy1')||{dWidth:80,dHeight:60};const enW=enS.dWidth,enH=enS.dHeight;const enVy=(dom.canvas.height+enH)/((ANSWER_TRAVEL_TIME_SECONDS+2)*60);let numE=0,fR=3000,cT=false;if(selectedLevelType==='APPRENTICE'){numE=1;fR=3000;}else if(selectedLevelType==='JOURNEYMAN'){numE=2;fR=2000;}else if(selectedLevelType==='MASTER'){numE=2;fR=2000;cT=true;}
+        for(let i=0;i<numE;i++){let pl=false;for(let att=0;att<20&&!pl;att++){const nE={x:Math.random()*(dom.canvas.width-enW-20)+(enW/2)+10,y:0-enH/2-(Math.random()*200),width:enW,height:enH,vy:enVy,fireRate:fR,lastFiredTime:Date.now()+Math.random()*fR,canTarget:cT,health:1,spriteName:'enemy1'};if(!(answers.some(ans=>checkOverlap(nE,ans))||enemies.some(e=>checkOverlap(nE,e)))){enemies.push(nE);pl=true;}}}}
+        function spawnPowerup(){if(powerups.length>0)return;const pTs=Object.values(POWERUP_TYPES);const type=pTs[Math.floor(Math.random()*pTs.length)];let sN='',iT='';if(type===POWERUP_TYPES.SHIELD){sN='powerupShield';iT='S🛡️';}else if(type===POWERUP_TYPES.ANSWER_BOMB){sN='powerupBomb';iT='B💣';}else if(type===POWERUP_TYPES.SPARKLE_BOMB){sN='powerupSparkle';iT='✨';}
+        const pS=spriteManager.getSprite(sN)||{dWidth:60,dHeight:60};const pSz=pS.dWidth;const pVy=(dom.canvas.height+pSz)/((ANSWER_TRAVEL_TIME_SECONDS-2)*60);powerups.push({x:Math.random()*(dom.canvas.width-pSz-20)+(pSz/2)+10,y:0-pSz/2,width:pSz,height:pSz,vy:pVy,type:type,acquired:false,spriteName:sN,iconText:iT});}
+        function drawSpaceship(){const spr=spriteManager.getSprite(spaceship.spriteName);if(spr&&spriteManager.isLoaded&&spriteManager.spriteSheetImage){if(spaceship.isInvincible&&Math.floor(Date.now()/100)%2===0)return;dom.ctx.drawImage(spriteManager.spriteSheetImage,spr.sX,spr.sY,spr.sWidth,spr.sHeight,spaceship.x-spr.dWidth/2,spaceship.y-spr.dHeight/2,spr.dWidth,spr.dHeight);}else{if(spaceship.isInvincible&&Math.floor(Date.now()/100)%2===0)return;dom.ctx.fillStyle='#00ffff';dom.ctx.beginPath();dom.ctx.moveTo(spaceship.x,spaceship.y-spaceship.height/2);dom.ctx.lineTo(spaceship.x-spaceship.width/2,spaceship.y+spaceship.height/2);dom.ctx.lineTo(spaceship.x+spaceship.width/2,spaceship.y+spaceship.height/2);dom.ctx.closePath();dom.ctx.fill();const eGH=10+Math.random()*5;dom.ctx.fillStyle='#ff4400';dom.ctx.fillRect(spaceship.x-4,spaceship.y+spaceship.height/2,8,eGH);dom.ctx.fillStyle='#ffff00';dom.ctx.fillRect(spaceship.x-2,spaceship.y+spaceship.height/2,4,eGH-2);}}
+        function drawBullets(bArr,defSprName){bArr.forEach(b=>{const spr=spriteManager.getSprite(b.spriteName||defSprName);if(spr&&spriteManager.isLoaded&&spriteManager.spriteSheetImage){dom.ctx.drawImage(spriteManager.spriteSheetImage,spr.sX,spr.sY,spr.sWidth,spr.sHeight,b.x-spr.dWidth/2,b.y-spr.dHeight/2,spr.dWidth,spr.dHeight);}else{const clr=(b.spriteName==='enemyBullet')?'#FF6347':'#ffff00';const rad=(b.spriteName==='enemyBullet')?8:10;dom.ctx.fillStyle=b.color||clr;dom.ctx.beginPath();dom.ctx.arc(b.x,b.y,b.width/2||rad,0,Math.PI*2);dom.ctx.fill();dom.ctx.shadowColor=b.color||clr;dom.ctx.shadowBlur=8;dom.ctx.fill();dom.ctx.shadowBlur=0;}});}
+        function drawRoundedRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath();}
+        function drawAnswers(){answers.forEach(ans=>{const spr=spriteManager.getSprite(ans.spriteName);const dX=ans.x-ans.width/2,dY=ans.y-ans.height/2;if(spr&&spriteManager.isLoaded&&spriteManager.spriteSheetImage)dom.ctx.drawImage(spriteManager.spriteSheetImage,spr.sX,spr.sY,spr.sWidth,spr.sHeight,dX,dY,ans.width,ans.height);else{dom.ctx.fillStyle='rgba(0,100,255,0.7)';dom.ctx.strokeStyle='#00ffff';dom.ctx.lineWidth=2;drawRoundedRect(dom.ctx,dX,dY,ans.width,ans.height,8);dom.ctx.fill();dom.ctx.stroke();}
+        dom.ctx.fillStyle='white';dom.ctx.font='bold 24px Inter,Arial';dom.ctx.textAlign='center';dom.ctx.textBaseline='middle';dom.ctx.fillText(ans.value,ans.x,ans.y);});}
+        function drawEnemies(){enemies.forEach(en=>{const spr=spriteManager.getSprite(en.spriteName);if(spr&&spriteManager.isLoaded&&spriteManager.spriteSheetImage)dom.ctx.drawImage(spriteManager.spriteSheetImage,spr.sX,spr.sY,spr.sWidth,spr.sHeight,en.x-spr.dWidth/2,en.y-spr.dHeight/2,spr.dWidth,spr.dHeight);else{dom.ctx.fillStyle=en.color||'#FF6347';dom.ctx.beginPath();dom.ctx.moveTo(en.x,en.y+en.height/2);dom.ctx.lineTo(en.x-en.width/2,en.y-en.height/2);dom.ctx.lineTo(en.x+en.width/2,en.y-en.height/2);dom.ctx.closePath();dom.ctx.fill();}});}
+        function drawPowerups(){powerups.forEach(p=>{if(!p.acquired){const spr=spriteManager.getSprite(p.spriteName);if(spr&&spriteManager.isLoaded&&spriteManager.spriteSheetImage)dom.ctx.drawImage(spriteManager.spriteSheetImage,spr.sX,spr.sY,spr.sWidth,spr.sHeight,p.x-spr.dWidth/2,p.y-spr.dHeight/2,spr.dWidth,spr.dHeight);else{dom.ctx.fillStyle=p.type===POWERUP_TYPES.SHIELD?'rgba(0,255,0,0.7)':p.type===POWERUP_TYPES.ANSWER_BOMB?'rgba(255,165,0,0.7)':'rgba(255,255,0,0.7)';dom.ctx.strokeStyle='#FFFFFF';dom.ctx.lineWidth=2;drawRoundedRect(dom.ctx,p.x-p.width/2,p.y-p.height/2,p.width,p.height,5);dom.ctx.fill();dom.ctx.stroke();dom.ctx.fillStyle='black';dom.ctx.font='bold 20px Inter,Arial';dom.ctx.textAlign='center';dom.ctx.textBaseline='middle';dom.ctx.fillText(p.iconText,p.x,p.y);}}});}
+        function drawParticles(){particles.forEach(p=>{dom.ctx.fillStyle=p.color;dom.ctx.beginPath();dom.ctx.arc(p.x,p.y,p.size,0,Math.PI*2);dom.ctx.fill();});}
+        function drawStars(){stars.forEach(s=>{dom.ctx.fillStyle='white';s.opacity+=(Math.random()-0.5)*0.1;s.opacity=Math.max(0.2,Math.min(1,s.opacity));dom.ctx.globalAlpha=s.opacity;dom.ctx.beginPath();dom.ctx.arc(s.x,s.y,s.size,0,Math.PI*2);dom.ctx.fill();});dom.ctx.globalAlpha=1;}
+        function updateShieldsDisplay(){dom.shieldsDisplayEl.textContent=spaceship.shields>0?`Shields: ${'🛡️'.repeat(spaceship.shields)}`:"";}
+        function activatePowerup(p){p.acquired=true;powerups=powerups.filter(pw=>pw!==p);if(p.type===POWERUP_TYPES.ANSWER_BOMB)answers=answers.filter(ans=>ans.correct);else if(p.type===POWERUP_TYPES.SHIELD){spaceship.shields=2;updateShieldsDisplay();}else if(p.type===POWERUP_TYPES.SPARKLE_BOMB)for(let i=0;i<100;i++)particles.push({x:Math.random()*dom.canvas.width,y:Math.random()*dom.canvas.height,size:Math.random()*3+1,color:`rgba(255,255,${Math.floor(Math.random()*155)+100},${Math.random()*0.5+0.5})`,life:60+Math.random()*60,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4});}
+        function updateParticles(){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.life--;if(p.life<=0)particles.splice(i,1);}}
+
+        function update(){if(currentGameState!==GAME_STATE.PLAYING){if(currentGameState===GAME_STATE.PAUSED){stars.forEach(s=>{s.y+=s.speed*0.5;if(s.y>dom.canvas.height+s.size){s.y=-s.size;s.x=Math.random()*dom.canvas.width;}});updateParticles();}return;}
+        if(gameJustReset){gameJustReset=false;return;}
+        stars.forEach(s=>{s.y+=s.speed;if(s.y>dom.canvas.height+s.size){s.y=-s.size;s.x=Math.random()*dom.canvas.width;}});updateParticles();if(spaceship.isInvincible){spaceship.invincibilityTimer-=1000/60;if(spaceship.invincibilityTimer<=0)spaceship.isInvincible=false;}
+        let mL=keys['ArrowLeft'],mR=keys['ArrowRight'];if(mL)spaceship.dx-=spaceship.acceleration;if(mR)spaceship.dx+=spaceship.acceleration;if(!mL&&!mR)spaceship.dx*=spaceship.friction;if(Math.abs(spaceship.dx)<0.1&&!mL&&!mR)spaceship.dx=0;if(spaceship.dx>spaceship.maxSpeed)spaceship.dx=spaceship.maxSpeed;if(spaceship.dx<-spaceship.maxSpeed)spaceship.dx=-spaceship.maxSpeed;spaceship.x+=spaceship.dx;if(spaceship.x-spaceship.width/2<0){spaceship.x=spaceship.width/2;spaceship.dx=0;}if(spaceship.x+spaceship.width/2>dom.canvas.width){spaceship.x=dom.canvas.width-spaceship.width/2;spaceship.dx=0;}
+        if(mouseActive){spaceship.x=mouseX;spaceship.dx=0;if(spaceship.x<spaceship.width/2)spaceship.x=spaceship.width/2;if(spaceship.x>dom.canvas.width-spaceship.width/2)spaceship.x=dom.canvas.width-spaceship.width/2;mouseActive=false;}
+        bullets=bullets.filter(b=>{b.y-=b.speed;return b.y>-b.height/2;});enemyBullets=enemyBullets.filter(eb=>{eb.y+=eb.vy;eb.x+=eb.vx;return eb.y<dom.canvas.height+eb.height/2&&eb.y>-eb.height/2&&eb.x>-eb.width/2&&eb.x<dom.canvas.width+eb.width/2;});
+        let cAnsMissP=false;for(let i=answers.length-1;i>=0;i--){const ans=answers[i];ans.y+=ans.vy;if(ans.y-ans.height/2>dom.canvas.height){if(ans.correct&&!cAnsMissP){score+=PENALTY_MISSED_CORRECT;dom.scoreEl.textContent=`Score: ${score}`;cAnsMissP=true;if(score<=SCORE_TO_LOSE){setGameState(GAME_STATE.GAME_OVER);return;}}answers.splice(i,1);}}
+        if(cAnsMissP&&answers.filter(a=>a.correct).length===0&&currentGameState===GAME_STATE.PLAYING){generateProblem();}
+        const curT=Date.now();for(let i=enemies.length-1;i>=0;i--){const en=enemies[i];en.y+=en.vy;if(en.y-en.height/2>dom.canvas.height){enemies.splice(i,1);continue;}
+        if(curT>en.lastFiredTime+en.fireRate){en.lastFiredTime=curT;let bVx=0,bVy=5;if(en.canTarget){const ang=Math.atan2((spaceship.y-spaceship.height/2)-(en.y-en.height/2),spaceship.x-en.x);bVx=Math.cos(ang)*bVy;bVy=Math.sin(ang)*bVy;if(bVy<2)bVy=2;}
+        const ebS=spriteManager.getSprite('enemyBullet')||{dWidth:16,dHeight:16};enemyBullets.push({x:en.x,y:en.y+en.height/2,vx:bVx,vy:bVy,width:ebS.dWidth,height:ebS.dHeight,spriteName:'enemyBullet'});}}
+        for(let i=powerups.length-1;i>=0;i--){const p=powerups[i];if(!p.acquired){p.y+=p.vy;if(p.y-p.height/2>dom.canvas.height)powerups.splice(i,1);}}
+        for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];let bDes=false;for(let j=answers.length-1;j>=0;j--){if(bDes)break;const ans=answers[j];if(checkOverlap(b,ans)){const {a,b:numB}=currentProblem;const pStr=getCanonicalProblemString(a,numB);if(!levelProblemStats[pStr])levelProblemStats[pStr]={successes:0,failures:0};bullets.splice(i,1);bDes=true;if(ans.correct){score+=POINTS_CORRECT_ANSWER;questionsAnsweredCorrectlyInLevel++;levelProblemStats[pStr].successes++;currentLevelErrorTracker[a]=0;currentLevelErrorTracker[numB]=0;if(score>=SCORE_TO_WIN){setGameState(GAME_STATE.LEVEL_COMPLETE);return;}else generateProblem();}else{score+=PENALTY_WRONG_ANSWER;levelProblemStats[pStr].failures++;currentLevelErrorTracker[a]=(currentLevelErrorTracker[a]||0)+1;currentLevelErrorTracker[numB]=(currentLevelErrorTracker[numB]||0)+1;answers.splice(j,1);if(!answers.some(a=>a.correct)&&currentGameState===GAME_STATE.PLAYING){if(score>SCORE_TO_LOSE)generateProblem();}}
+        dom.scoreEl.textContent=`Score: ${score}`;if(score<=SCORE_TO_LOSE&&currentGameState===GAME_STATE.PLAYING){setGameState(GAME_STATE.GAME_OVER);return;}break;}}
+        if(bDes)continue;for(let k=enemies.length-1;k>=0;k--){if(bDes)break;const en=enemies[k];if(checkOverlap(b,en)){bullets.splice(i,1);bDes=true;en.health--;if(en.health<=0){enemies.splice(k,1);score+=POINTS_ENEMY_DESTROYED;dom.scoreEl.textContent=`Score: ${score}`;}break;}}
+        if(bDes)continue;for(let l=powerups.length-1;l>=0;l--){if(bDes)break;const pwr=powerups[l];if(!pwr.acquired&&checkOverlap(b,pwr)){bullets.splice(i,1);bDes=true;activatePowerup(pwr);break;}}}
+        if(!spaceship.isInvincible){for(let i=enemyBullets.length-1;i>=0;i--){const eb=enemyBullets[i];if(checkOverlap(eb,spaceship)){enemyBullets.splice(i,1);score+=PENALTY_PLAYER_HIT;dom.scoreEl.textContent=`Score: ${score}`;if(spaceship.shields>0){spaceship.shields--;updateShieldsDisplay();spaceship.isInvincible=true;spaceship.invincibilityTimer=1000;}else{setGameState(GAME_STATE.GAME_OVER);return;}break;}}
+        if(currentGameState!==GAME_STATE.PLAYING)return;for(let i=enemies.length-1;i>=0;i--){const en=enemies[i];if(checkOverlap(en,spaceship)){score+=PENALTY_PLAYER_HIT;dom.scoreEl.textContent=`Score: ${score}`;if(spaceship.shields>0){spaceship.shields--;updateShieldsDisplay();spaceship.isInvincible=true;spaceship.invincibilityTimer=1500;enemies.splice(i,1);}else{setGameState(GAME_STATE.GAME_OVER);return;}break;}}}
+        if(currentGameState===GAME_STATE.PLAYING&&score<=SCORE_TO_LOSE){setGameState(GAME_STATE.GAME_OVER);}}
+
+        function render(){dom.ctx.clearRect(0,0,dom.canvas.width,dom.canvas.height);drawStars();drawParticles();if(currentGameState===GAME_STATE.PLAYING||currentGameState===GAME_STATE.PAUSED){drawAnswers();drawEnemies();drawPowerups();drawSpaceship();drawBullets(bullets,'playerBullet');drawBullets(enemyBullets,'enemyBullet');}}
+        function gameLoop(){update();render();requestAnimationFrame(gameLoop);}
+        function shoot(){if(currentGameState!==GAME_STATE.PLAYING)return;const bS=spriteManager.getSprite('playerBullet')||{dWidth:20,dHeight:20};bullets.push({x:spaceship.x,y:spaceship.y-spaceship.height/2,width:bS.dWidth,height:bS.dHeight,speed:10,spriteName:'playerBullet'});}
+        function nextLevelSelection(){if(selectedLevelType=="PRACTICE"&&selectedLevelValue<=11)selectedLevelValue+=1;else if(selectedLevelType=="PRACTICE"&&selectedLevelValue==12){selectedLevelType="APPRENTICE";selectedLevelValue=null;}else if(selectedLevelType=="APPRENTICE")selectedLevelType="JOURNEYMAN";else if(selectedLevelType=="JOURNEYMAN")selectedLevelType="MASTER";setGameState(GAME_STATE.PLAYING);}
+        
+        function displayLevelReport(rContId){const rC=document.getElementById(rContId);if(!rC)return;const sC=rC.querySelector('.report-content-scrollable');if(!sC)return;const sP=sC.querySelector('p.final-score-report');sC.innerHTML='';if(sP)sC.appendChild(sP);if(Object.keys(levelProblemStats).length===0){const noS=document.createElement('p');noS.textContent="No problems attempted this level.";sC.appendChild(noS);return;}
+        let tbl='<table class="stats-table"><thead><tr><th>Problem</th><th>Successes</th><th>Failures</th></tr></thead><tbody>';const sProbs=Object.keys(levelProblemStats).sort((a,b)=>{const[a1,a2]=a.split(' × ').map(Number);const[b1,b2]=b.split(' × ').map(Number);if(a1!==b1)return a1-b1;return a2-b2;});for(const prob of sProbs){const st=levelProblemStats[prob];tbl+=`<tr><td>${prob}</td><td>${st.successes}</td><td>${st.failures}</td></tr>`;}
+        tbl+='</tbody></table>';sC.innerHTML+=tbl;}
+
+        function displayOverallHeatmap(){
+            loadOverallStats();
+            dom.heatmapContainer.innerHTML = '';
+            const maxSize = 12;
+            const hRow = document.createElement('div');
+            hRow.className = 'heatmap-header';
+            dom.heatmapContainer.appendChild(hRow);
+            for(let i = 1; i <= maxSize; i++) {
+                const hC = document.createElement('div');
+                hC.className = 'heatmap-header';
+                hC.textContent = i;
+                dom.heatmapContainer.appendChild(hC);
+            }
+            for(let i = 1; i <= maxSize; i++) {
+                const rHC = document.createElement('div');
+                rHC.className = 'heatmap-header';
+                rHC.textContent = i;
+                dom.heatmapContainer.appendChild(rHC); 
+                for(let j = 1; j <= maxSize; j++) {
+                    const uProbStr = `${i} × ${j}`;
+                    const cProbStr = getCanonicalProblemString(i, j);
+                    const stats = overallPlayerStats[cProbStr] || {totalSuccesses: 0, totalFailures: 0, history: []};
+                    const tAtt = stats.totalSuccesses + stats.totalFailures;
+                    let cClr = 'hsl(0, 0%, 26.7%)';
+                    if(tAtt > 0) {
+                        const sRate = stats.totalSuccesses / tAtt;
+                        if(sRate >= 0.9) cClr = 'hsl(120, 100%, 45%)';
+                        else if(stats.totalSuccesses === 0 && stats.totalFailures > 0) cClr = 'hsl(0, 100%, 50%)';
+                        else { const hue = sRate * 120; cClr = `hsl(${hue}, 100%, 50%)`; }
+                    }
+                    const cell = document.createElement('div');
+                    cell.className = 'heatmap-cell';
+                    cell.style.backgroundColor = cClr;
+                    cell.textContent = uProbStr;
+                    cell.title = `${uProbStr} (Stats for ${cProbStr}): ${stats.totalSuccesses}S / ${stats.totalFailures}F`;
+                    cell.addEventListener('click', () => displayProgressGraph(cProbStr));
+                    dom.heatmapContainer.appendChild(cell);
+                }
+            }
+        }
+        
+        function displayProgressGraph(problemString) {
+            if (progressChart) { progressChart.destroy(); }
+            const problemData = overallPlayerStats[problemString];
+            if (!problemData || !problemData.history || problemData.history.length === 0) {
+                alert(`No historical data found for ${problemString}.`);
+                return;
+            }
+            dom.graphTitle.textContent = `Progress for ${problemString}`;
+            const labels = problemData.history.map(entry => new Date(entry.timestamp).toLocaleDateString());
+            const data = problemData.history.map(entry => {
+                const total = entry.successes + entry.failures;
+                return total > 0 ? (entry.successes / total) * 100 : 0;
+            });
+
+            const chartCtx = document.getElementById('progressChart').getContext('2d');
+            progressChart = new Chart(chartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Success Rate (%)',
+                        data: data,
+                        borderColor: '#00ffff',
+                        backgroundColor: 'rgba(0, 255, 255, 0.2)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true, max: 100 } },
+                    responsive: true,
+                    maintainAspectRatio: true
+                }
+            });
+            dom.graphModal.style.display = 'flex';
+        }
+
+        // --- Auth & UI Setup ---
+        function setupEventListeners() {
+            // Screen Navigation
+            dom.goToSignUpLink.addEventListener('click', () => setGameState(GAME_STATE.SIGN_UP));
+            dom.goToLoginLink.addEventListener('click', () => setGameState(GAME_STATE.LOGIN));
+            dom.backToMainMenuBtnLvl.addEventListener('click',()=>setGameState(GAME_STATE.MENU));
+            dom.backToMainMenuFromReportingBtn.addEventListener('click',()=>setGameState(GAME_STATE.MENU));
+            dom.backToReportingMenuBtn.addEventListener('click',()=>setGameState(GAME_STATE.REPORTING_MENU));
+            dom.backToProfileSelectBtn.addEventListener('click',()=>setGameState(GAME_STATE.PROFILE_SELECT));
+            dom.overallPerformanceBtn.addEventListener('click',()=>setGameState(GAME_STATE.HEATMAP_REPORT));
+            dom.mainMenuFromCompleteBtn.addEventListener('click',()=>setGameState(GAME_STATE.MENU));
+            dom.mainMenuFromGameOverBtn.addEventListener('click',()=>setGameState(GAME_STATE.MENU));
+            dom.tryAgainBtn.addEventListener('click',()=>setGameState(GAME_STATE.PLAYING));
+            dom.nextLevelBtn.addEventListener('click',()=>nextLevelSelection());
+            dom.pauseGameBtn.addEventListener('click',()=>{if(currentGameState===GAME_STATE.PLAYING)setGameState(GAME_STATE.PAUSED);});
+            dom.resumeGameBtn.addEventListener('click',()=>{if(currentGameState===GAME_STATE.PAUSED)setGameState(GAME_STATE.PLAYING);});
+            dom.pauseMenuSettingsBtn.addEventListener('click',()=>alert('Settings (Pause Menu): Coming Soon!'));
+            dom.exitToMainMenuBtn.addEventListener('click',()=>setGameState(GAME_STATE.MENU));
+            dom.clearPlayerHistoryBtn.addEventListener('click',()=>{dom.confirmationMessageText.textContent="Are you sure you want to clear all player history? This action cannot be undone.";dom.confirmationModal.style.display='flex';});
+            dom.confirmClearBtn.addEventListener('click',()=>{if(!currentUser){return;}db.collection('users').doc(currentUser.uid).set({stats:{}},{merge:true}).then(()=>{overallPlayerStats={};dom.confirmationModal.style.display='none';dom.clearHistoryStatusEl.textContent='Player history cleared!';setTimeout(()=>dom.clearHistoryStatusEl.textContent='',3000);}).catch(e=>{console.error("Error clearing stats:",e);dom.confirmationModal.style.display='none';dom.clearHistoryStatusEl.textContent='Error clearing stats.';setTimeout(()=>dom.clearHistoryStatusEl.textContent='',3000);});});
+            dom.cancelClearBtn.addEventListener('click',()=>{dom.confirmationModal.style.display='none';});
+            dom.closeGraphBtn.addEventListener('click', () => { dom.graphModal.style.display = 'none'; });
+            dom.logoutFromProfileSelectBtn.addEventListener('click', handleLogout);
+            dom.profileSelectSettingsBtn.addEventListener('click', () => setGameState(GAME_STATE.SETTINGS));
+
+            // Auth Actions
+            dom.loginBtn.addEventListener('click', handleLogin);
+            
+            // Canvas & Keyboard
+            dom.canvas.addEventListener('mousemove',(e)=>{if(currentGameState===GAME_STATE.PLAYING){const rect=dom.canvas.getBoundingClientRect();mouseX=e.clientX-rect.left;mouseActive=true;}});
+            dom.canvas.addEventListener('click',(e)=>{if(currentGameState===GAME_STATE.PLAYING)shoot();});
+            document.addEventListener('keydown',(e)=>{if(currentGameState===GAME_STATE.PLAYING){keys[e.code]=true;if(e.code==='Space'){e.preventDefault();shoot();}}if(e.code==='Escape'){e.preventDefault();if(currentGameState===GAME_STATE.PLAYING)setGameState(GAME_STATE.PAUSED);else if(currentGameState===GAME_STATE.PAUSED)setGameState(GAME_STATE.PLAYING);}});
+            document.addEventListener('keyup',(e)=>{if(currentGameState===GAME_STATE.PLAYING)keys[e.code]=false;});
+            window.addEventListener('resize',resizeCanvas);
+
+            // Sign-Up Flow Listeners
+            dom.selectRoleGuardianBtn.addEventListener('click', () => { signUpData.role = 'guardian'; dom.teacherFields.style.display = 'none'; showSignUpStep(2); });
+            dom.selectRoleTeacherBtn.addEventListener('click', () => { signUpData.role = 'teacher'; dom.teacherFields.style.display = 'block'; showSignUpStep(2); });
+            dom.signUpBackToStep1Btn.addEventListener('click', () => showSignUpStep(1));
+            dom.signUpToStep3Btn.addEventListener('click', handleSignUpStep2Next);
+            dom.submitParentSignUpBtn.addEventListener('click', handleSubmitSignUp);
+            dom.submitTeacherSignUpBtn.addEventListener('click', handleSubmitSignUp); // Both final submits can call the same handler for now
+        }
+        
+        function updateMainMenuUI() {
+            dom.mainMenuUserControls.innerHTML = ''; 
+            if (currentUser && currentPlayerProfile) {
+                const userControlsHTML = `
+                    <p>Playing as: ${currentPlayerProfile.username}</p>
+                    <button id="mainMenuSelectLevelBtn">Select Level</button>
+                    <button id="mainMenuReportingBtn">Reporting</button>
+                    <button id="mainMenuSettingsBtn">Settings</button>
+                    <button id="switchProfileBtn">Switch Player Profile</button>
+                `;
+                dom.mainMenuUserControls.innerHTML = userControlsHTML;
+                document.getElementById('mainMenuSelectLevelBtn').addEventListener('click', () => setGameState(GAME_STATE.LEVEL_SELECT));
+                document.getElementById('mainMenuReportingBtn').addEventListener('click', () => setGameState(GAME_STATE.REPORTING_MENU));
+                document.getElementById('mainMenuSettingsBtn').addEventListener('click', () => setGameState(GAME_STATE.SETTINGS));
+                document.getElementById('switchProfileBtn').addEventListener('click', () => setGameState(GAME_STATE.PROFILE_SELECT));
+            }
+        }
+        
+        function handleLogin() { const email = dom.loginEmailInput.value; const password = dom.loginPasswordInput.value; auth.signInWithEmailAndPassword(email, password).catch(error => dom.loginMessage.textContent = error.message); }
+        function handleLogout() { auth.signOut(); }
+
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user; 
+            currentPlayerProfile = null; // Reset current player on auth change
+            if (user) {
+                console.log("User logged in:", user.email);
+                dom.authStatusContainer.innerHTML = `<p>Welcome, ${user.email}</p><button id="logoutBtn">Logout</button>`;
+                document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+                setGameState(GAME_STATE.PROFILE_SELECT); 
+            } else {
+                console.log("User logged out.");
+                overallPlayerStats = {}; 
+                dom.authStatusContainer.innerHTML = `<button id="showLoginBtn">Login / Sign Up</button>`;
+                document.getElementById('showLoginBtn').addEventListener('click', () => setGameState(GAME_STATE.LOGIN));
+                setGameState(GAME_STATE.LOGIN); 
+            }
+        });
+        
+        function populateLevelSelectMenu(){dom.practiceLevelsContainer.innerHTML='';dom.coreLevelsContainer.innerHTML='';for(let i=1;i<=12;i++){const btn=document.createElement('button');btn.textContent=i;btn.addEventListener('click',()=>{selectedLevelType='PRACTICE';selectedLevelValue=i;setGameState(GAME_STATE.PLAYING);});dom.practiceLevelsContainer.appendChild(btn);}
+        const coreLvls=[{name:"Apprentice Blaster",type:'APPRENTICE'},{name:"Journeyman Blaster",type:'JOURNEYMAN'},{name:"Master Blaster",type:'MASTER'}];coreLvls.forEach(lvl=>{const btn=document.createElement('button');btn.textContent=lvl.name;btn.classList.add('core-level-button');btn.addEventListener('click',()=>{selectedLevelType=lvl.type;selectedLevelValue=null;setGameState(GAME_STATE.PLAYING);});dom.coreLevelsContainer.appendChild(btn);});}
+        
+        // --- New Sign-Up and Profile Selection Logic ---
+        function showSignUpStep(step) {
+            [dom.signUpStep1, dom.signUpStep2, dom.signUpStep3Parent, dom.signUpStep3Teacher, dom.signUpStep4Teacher, dom.signUpComplete].forEach(s => s.style.display = 'none');
+            if (step === 1) dom.signUpStep1.style.display = 'block';
+            if (step === 2) dom.signUpStep2.style.display = 'block';
+            if (step === 3 && signUpData.role === 'guardian') dom.signUpStep3Parent.style.display = 'block';
+            if (step === 3 && signUpData.role === 'teacher') dom.signUpStep3Teacher.style.display = 'block';
+            if (step === 4) dom.signUpStep4Teacher.style.display = 'block';
+            if (step === 5) dom.signUpComplete.style.display = 'block';
+        }
+
+        function handleSignUpStep2Next() {
+            // Basic validation
+            if (!document.getElementById('signUpLegalConfirm').checked) {
+                dom.signUpStep2Message.textContent = 'You must confirm you have the right to create this account.';
+                return;
+            }
+            // More validation would go here (email format, password length, etc.)
+            dom.signUpStep2Message.textContent = ''; // Clear error message
+            // Store data and move to next step
+            signUpData.firstName = document.getElementById('signUpFirstName').value;
+            signUpData.lastName = document.getElementById('signUpLastName').value;
+            signUpData.email = document.getElementById('signUpEmail').value;
+            signUpData.password = document.getElementById('signUpPassword').value;
+            if (signUpData.role === 'teacher') {
+                // gather teacher data
+            }
+            showSignUpStep(3);
+        }
+        
+        async function handleSubmitSignUp() {
+            // This is a placeholder for the final submission logic
+            alert("Sign up submission is not fully implemented yet.");
+        }
+
+        async function displayProfileSelection() {
+            if (!currentUser) return;
+            dom.profileSelectionContainer.innerHTML = 'Loading profiles...';
+            const profilesSnapshot = await db.collection('profiles').where('supervisorUid', '==', currentUser.uid).get();
+            dom.profileSelectionContainer.innerHTML = '';
+            if (profilesSnapshot.empty) {
+                dom.profileSelectionContainer.innerHTML = '<p>No player profiles found. Please add one in settings.</p>';
+                dom.profileSelectSettingsBtn.style.display = 'block'; // Show settings button
+            } else {
+                dom.profileSelectSettingsBtn.style.display = 'none'; // Hide if profiles exist
+                profilesSnapshot.forEach(doc => {
+                    const profile = { profileId: doc.id, ...doc.data() };
+                    const card = document.createElement('div');
+                    card.className = 'profile-card';
+                    card.textContent = profile.username;
+                    card.addEventListener('click', async () => {
+                        currentPlayerProfile = profile;
+                        await loadOverallStats();
+                        setGameState(GAME_STATE.MENU);
+                    });
+                    dom.profileSelectionContainer.appendChild(card);
+                });
+            }
+        }
+        
+        window.onload=()=>{
+            setupEventListeners(); 
+            populateLevelSelectMenu();
+            spriteManager.loadSpriteSheet('https://cdn.jsdelivr.net/gh/tnharvey/testRedir@main/Spritesheet.png'); 
+            gameLoop();
+            resizeCanvas(); 
+        };
+    </script>
+</body>
+</html>
