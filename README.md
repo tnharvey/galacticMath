@@ -1,6 +1,6 @@
-# Math Shooter
+# Galactic Math
 
-[View Live](http://tnharvey.github.io/mathShooter/)
+[View Live](http://tnharvey.github.io/galacticMath/)
 
 Math Shooter is an interactive game that combines math challenges with engaging gameplay. Players control a spaceship and must answer math problems by shooting the correct answers while avoiding enemies and collecting power-ups. This game is a vibe coding project that I work on periodically in my spare time, started as an experiment to see what I could do via vibe coding and continued out of surprise at how enjoyable it was to code with Gemini. I started this with ChatGPT, then tried it in Claude, but found I tended to get consistent results from Gemini and have stayed there.
 
