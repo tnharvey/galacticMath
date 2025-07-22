@@ -867,7 +867,7 @@
             resizeCanvas();
             populateLevelSelectMenu();
             setupEventListeners();
-            spriteManager.loadSpriteSheet('https://cdn.jsdelivr.net/gh/tnharvey/mathShooter@main/Spritesheet.png');
+            spriteManager.loadSpriteSheet('https://cdn.jsdelivr.net/gh/tnharvey/galacticMath@main/Spritesheet.png');
             setGameState(GAME_STATE.MENU);
             gameLoop();
         };
