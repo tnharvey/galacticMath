@@ -1,4 +1,4 @@
-body {
+        body {
             margin: 0;
             padding: 0;
             background: linear-gradient(to bottom, #0a0a2e, #16213e, #1a1a3a);
@@ -110,6 +110,7 @@ body {
             z-index: 10; 
             padding: 20px;
             box-sizing: border-box;
+            overflow-y: auto;
         }
         .screen h1 {
             font-size: clamp(30px, 7vw, 52px);

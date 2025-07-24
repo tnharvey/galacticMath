@@ -129,6 +129,11 @@
         let finalChallengeWaveEvent = false;
         let waveEventTriggered = false;
         let waveEnemiesActive = false;
+        let correctAnswertShotInWave = false;
+        let touchStartTime = 0;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let movementTouchId = null;
 
         // Game States
         const GAME_STATE = {
@@ -335,7 +340,7 @@
                 case GAME_STATE.PLAYING: gameUiContainer.style.display = 'flex'; if(previousGameState !== GAME_STATE.PAUSED && previousGameState !== GAME_STATE.WAVE_ALERT) { resetGameForNewLevel(); gameJustReset = true; } break;
                 case GAME_STATE.PAUSED: pauseMenuScreen.style.display = 'flex'; gameUiContainer.style.display = 'flex'; break;
                 case GAME_STATE.LEVEL_COMPLETE: 
-                    if (currentNodeData.type === 'final_challenge') {
+                    if (currentNodeData.type === 'final_challenge' && previousGameState !== GAME_STATE.GRADUATION) {
                         setGameState(GAME_STATE.GRADUATION);
                     } else {
                         finalScoreCompleteEl.textContent=`Your Final Score: ${score}`; 
@@ -366,7 +371,7 @@
                 case GAME_STATE.INSTRUCTION: instructionScreen.style.display = 'flex'; break;
                 case GAME_STATE.FINAL_CHALLENGE: finalChallengeScreen.style.display = 'flex'; break;
                 case GAME_STATE.WAVE_ALERT: waveAlertModal.style.display = 'flex'; break;
-                case GAME_STATE.GRADUATION: graduationScreen.style.display = 'flex'; break;
+                case GAME_STATE.GRADUATION: graduationScreen.style.display = 'flex'; gameUiContainer.style.display = 'flex'; break;
             }
         }
         
@@ -378,6 +383,7 @@
             finalChallengeWaveEvent = false;
             waveEventTriggered = false;
             waveEnemiesActive = false;
+            correctAnswertShotInWave = false;
             
             if (currentNodeData.type === 'final_challenge') {
                 masteryProblemSet = generateMasteryProblemSet();
@@ -481,6 +487,7 @@
                 // Do not generate a new problem until wave enemies are cleared
                 return;
             }
+            correctAnswertShotInWave = false; // Reset for the new wave/problem
 
             let problemData;
 
@@ -559,8 +566,7 @@
             if (waveEnemiesActive) {
                 const enS = spriteManager.getSprite('enemy1') || {dWidth:80,dHeight:60};
                 const enW = enS.dWidth, enH = enS.dHeight;
-                enemies.push({ x: canvas.width * 0.25, y: canvas.height * 0.15, width: enW, height: enH, vy: 0, vx: 2, fireRate: 2000, lastFiredTime: Date.now(), canTarget: false, health: 1, spriteName: 'enemy1', movement: 'patrol' });
-                enemies.push({ x: canvas.width * 0.75, y: canvas.height * 0.15, width: enW, height: enH, vy: 0, vx: -2, fireRate: 2000, lastFiredTime: Date.now() + 1000, canTarget: false, health: 1, spriteName: 'enemy1', movement: 'patrol' });
+                enemies.push({ x: canvas.width * 0.5, y: canvas.height * 0.15, width: enW, height: enH, vy: 0, vx: 2, fireRate: 2000, lastFiredTime: Date.now(), canTarget: false, health: 1, spriteName: 'enemy1', movement: 'patrol' });
                 return;
             }
 
@@ -700,7 +706,16 @@
                                 setGameState(GAME_STATE.LEVEL_COMPLETE); 
                                 return;
                             }
-                            generateProblem();
+                            
+                            if (waveEnemiesActive) {
+                                correctAnswertShotInWave = true;
+                                answers = []; // Clear asteroids and wait for enemies
+                                if (enemies.length === 0) {
+                                    generateProblem();
+                                }
+                            } else {
+                                generateProblem();
+                            }
                         } else {
                             score+=PENALTY_WRONG_ANSWER;levelProblemStats[pStr].failures++;answers.splice(j,1);
                             if(!answers.some(a=>a.correct) && currentGameState === GAME_STATE.PLAYING){ if(score>SCORE_TO_LOSE)generateProblem();}
@@ -717,7 +732,7 @@
                     }
                 }
                 if(bulletDestroyedThisLoop)continue;
-                for(let k=enemies.length-1;k>=0;k--){ if(bulletDestroyedThisLoop) break; const en=enemies[k]; if(checkOverlap(b,en)){ bullets.splice(i,1);bulletDestroyedThisLoop=true;en.health--; if(en.health<=0){enemies.splice(k,1);score+=POINTS_ENEMY_DESTROYED;scoreEl.textContent=`Score: ${score}`; if (waveEnemiesActive && enemies.length === 0) { generateProblem(); } } break; } }
+                for(let k=enemies.length-1;k>=0;k--){ if(bulletDestroyedThisLoop) break; const en=enemies[k]; if(checkOverlap(b,en)){ bullets.splice(i,1);bulletDestroyedThisLoop=true;en.health--; if(en.health<=0){enemies.splice(k,1);score+=POINTS_ENEMY_DESTROYED;scoreEl.textContent=`Score: ${score}`; if (waveEnemiesActive && enemies.length === 0 && correctAnswertShotInWave) { generateProblem(); } } break; } }
                 if(bulletDestroyedThisLoop)continue;
                 for(let l=powerups.length-1;l>=0;l--){ if(bulletDestroyedThisLoop) break; const pwr=powerups[l]; if(!pwr.acquired&&checkOverlap(b,pwr)){bullets.splice(i,1);bulletDestroyedThisLoop=true;activatePowerup(pwr);break;} }
             }
@@ -730,7 +745,7 @@
              if (currentGameState === GAME_STATE.PLAYING && score <= SCORE_TO_LOSE) { setGameState(GAME_STATE.GAME_OVER); }
         }
 
-        function render(){ctx.clearRect(0,0,canvas.width,canvas.height);drawStars();drawParticles();if(currentGameState===GAME_STATE.PLAYING||currentGameState===GAME_STATE.PAUSED||currentGameState===GAME_STATE.WAVE_ALERT){drawAnswers();drawEnemies();drawPowerups();drawSpaceship();drawBullets(bullets,'playerBullet');drawBullets(enemyBullets,'enemyBullet');}}
+        function render(){ctx.clearRect(0,0,canvas.width,canvas.height);drawStars();drawParticles();if(currentGameState===GAME_STATE.PLAYING||currentGameState===GAME_STATE.PAUSED||currentGameState===GAME_STATE.WAVE_ALERT||currentGameState===GAME_STATE.GRADUATION||currentGameState===GAME_STATE.LEVEL_COMPLETE){drawAnswers();drawEnemies();drawPowerups();drawSpaceship();drawBullets(bullets,'playerBullet');drawBullets(enemyBullets,'enemyBullet');}}
         function gameLoop(){ update(); render(); requestAnimationFrame(gameLoop); }
         function shoot(){if(currentGameState!==GAME_STATE.PLAYING)return;const bS=spriteManager.getSprite('playerBullet')||{dWidth:20,dHeight:20};bullets.push({x:spaceship.x,y:spaceship.y-spaceship.height/2,width:bS.dWidth,height:bS.dHeight,speed:10,spriteName:'playerBullet'});}
         
@@ -759,6 +774,52 @@
                     if(totalAtt>0){sRate=stats.successes/totalAtt;if(sRate>=0.9)cColor='hsl(120,100%,45%)';else if(stats.successes===0&&stats.failures>0)cColor='hsl(0,100%,50%)';else{const hue=sRate*120;cColor=`hsl(${hue},100%,50%)`;}}
                     const cell=document.createElement('div');cell.className='heatmap-cell';cell.style.backgroundColor=cColor;
                     cell.textContent=uProbStr; cell.title=`${uProbStr} (Stats for ${canonProbStr}): ${stats.successes}S / ${stats.failures}F`;container.appendChild(cell);
+                }
+            }
+        }
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touches = e.changedTouches;
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                if (movementTouchId === null) { // If no finger is currently moving the ship
+                    movementTouchId = touch.identifier;
+                    touchStartTime = Date.now();
+                    touchStartX = touch.clientX;
+                    touchStartY = touch.clientY;
+                }
+            }
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touches = e.changedTouches;
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                if (touch.identifier === movementTouchId) {
+                    const rect = canvas.getBoundingClientRect();
+                    mouseX = touch.clientX - rect.left;
+                    mouseActive = true;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            const touches = e.changedTouches;
+            for (let i = 0; i < touches.length; i++) {
+                const touch = touches[i];
+                if (touch.identifier === movementTouchId) {
+                    movementTouchId = null; // Release movement control
+                    const touchDuration = Date.now() - touchStartTime;
+                    const touchDistance = Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY);
+                    if (touchDuration < 200 && touchDistance < 20) {
+                        shoot();
+                    }
+                } else {
+                    // This was a secondary touch, likely for shooting
+                    shoot();
                 }
             }
         }
@@ -840,6 +901,12 @@
             document.addEventListener('keyup',(e)=>{if(currentGameState===GAME_STATE.PLAYING)keys[e.code]=false;});
             canvas.addEventListener('mousemove',(e)=>{if(currentGameState===GAME_STATE.PLAYING){const rect=canvas.getBoundingClientRect();mouseX=e.clientX-rect.left;mouseActive=true;}});
             canvas.addEventListener('click',(e)=>{if(currentGameState===GAME_STATE.PLAYING)shoot();});
+
+            // Touch Events
+            canvas.addEventListener('touchstart', handleTouchStart);
+            canvas.addEventListener('touchmove', handleTouchMove);
+            canvas.addEventListener('touchend', handleTouchEnd);
+
             window.addEventListener('resize',resizeCanvas);
         }
 
@@ -867,7 +934,7 @@
             resizeCanvas();
             populateLevelSelectMenu();
             setupEventListeners();
-            spriteManager.loadSpriteSheet('https://cdn.jsdelivr.net/gh/tnharvey/galacticMath@main/Spritesheet.png');
+            spriteManager.loadSpriteSheet('https://cdn.jsdelivr.net/gh/tnharvey/mathShooter@main/Spritesheet.png');
             setGameState(GAME_STATE.MENU);
             gameLoop();
         };
